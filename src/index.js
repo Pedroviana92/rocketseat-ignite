@@ -21,6 +21,16 @@ function verifyExistsAccountCPF(req, res, next) {
 
    return next()
 }
+function getBalance(statement) {
+   const balance = statement.reduce((acc, operation) => {
+       if(operation.type === 'credit'){
+           return acc + operation.amount
+       } else {
+           return acc - operation.amount
+       }
+   }, 0)
+   return balance
+}
 
 
 app.post('/account', (req, res)=> {
@@ -38,14 +48,20 @@ app.post('/account', (req, res)=> {
         cpf,
         name,
         id: uuid(),
-        statement: []
+        statement: [],
     })
     return res.status(201).send('Conta criada');
 })
 
-app.get('/statement', verifyExistsAccountCPF ,(req, res)=> {
+app.get('/statement/date', verifyExistsAccountCPF ,(req, res)=> {
     const { customer } = req
-    return res.json(customer.statement)
+    const { date } = req.query
+
+    const dateFormat = new Date(date + ' 00:00')
+
+    const statement = customer.statement.filter((statement)=> statement.created_at.toDateString() === new Date(dateFormat).toDateString())
+
+    return res.json(statement)
 })
 
 app.post('/deposit', verifyExistsAccountCPF, (req, res)=> {
@@ -61,7 +77,60 @@ app.post('/deposit', verifyExistsAccountCPF, (req, res)=> {
     }
     customer.statement.push(statementOperation)
 
-    return res.status(201).send()
+    return res.status(201).send('Successful deposit!')
 })
+
+app.post('/withdraw', verifyExistsAccountCPF ,(req, res)=> {
+    const { amount } = req.body
+    const { customer } = req
+
+    const balance = getBalance(customer.statement)
+
+    if(balance < amount) {
+        res.status(400).json({
+            message: "Not enough money!"
+        })
+    }
+    if(balance > amount) {
+
+        const statementOperation = {
+            amount,
+            created_at: new Date(),
+            type: 'debit',
+        }
+    
+    customer.statement.push(statementOperation)
+
+    }
+
+    return res.status(201).send({message: "Withdraw was successful"})
+
+})
+
+app.put('/account', verifyExistsAccountCPF, (req, res) => {
+    const { name } = req.body
+    const { customer } = req
+
+    customer.name = name
+
+    return res.status(201).send("Name updated successfully!")
+})
+
+app.get('/account', verifyExistsAccountCPF, (req, res) => {
+    const { customer } = req
+
+    return res.status(201).json(customer)
+
+})
+
+app.delete('/account', verifyExistsAccountCPF, (req,res) => {
+    const { customer } = req 
+
+    customers.splice(customer, 1)
+
+    return res.status(200).json(customers)
+})
+
+
 app.listen('3050');
 
