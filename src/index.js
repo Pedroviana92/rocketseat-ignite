@@ -24,7 +24,7 @@ function verifyExistsAccountCPF(req, res, next) {
 
 
 app.post('/account', (req, res)=> {
-    const {cpf, name} = req.params
+    const {cpf, name} = req.body
     
     const CustomerAlreadyExists = customers.some((customer)=> customer.cpf === cpf)
 
